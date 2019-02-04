@@ -164,7 +164,7 @@ class DB(object):
              'method': 'change_admin_password',
              'args': [password, new_password]})
 
-    def create(self, password, db, demo=False, lang='en_US', admin_password='admin'):
+    def create(self, password, db, demo=False, lang='en_US', admin_password='admin', admin_login='admin', country_code=None, admin_phone=None):
         """Request the server to create a new database named `db`
         which will have `admin_password` as administrator password and
         localized with the `lang` parameter.
@@ -193,11 +193,18 @@ class DB(object):
         :raise: :class:`odoorpc.error.RPCError` (access denied)
         :raise: `urllib.error.URLError` (connection error)
         """
+        args = [password, db, demo, lang, admin_password]
+        if v(self._odoo.version)[0] >= 12:
+            args.append(admin_login)
+            if country_code is not None:
+                args.append(country_code)
+            if admin_phone is not None:
+                args.append(admin_phone)
         self._odoo.json(
             '/jsonrpc',
             {'service': 'db',
              'method': 'create_database',
-             'args': [password, db, demo, lang, admin_password]})
+             'args': args})
 
     def drop(self, password, db):
         """Drop the `db` database. Returns `True` if the database was removed,
