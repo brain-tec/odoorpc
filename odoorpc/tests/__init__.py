@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import time
 
 import odoorpc
 
@@ -40,6 +41,16 @@ class BaseTestCase(unittest.TestCase):
         self.odoo.config['timeout'] = 600
         if self.env['db'] not in self.odoo.db.list():
             self.odoo.db.create(self.env['super_pwd'], self.env['db'], True)
+            # Disable cron jobs so installation of modules in tests doesn't
+            # trigger "Odoo is currently processing a scheduled action." error.
+            cron_disabled = False
+            while not cron_disabled:
+                try:
+                    self.odoo.env["ir.cron"].search([]).write({"active": False})
+                except odoorpc.error.RPCError:
+                    time.sleep(1)   # Let's wait a bit before trying again
+                else:
+                    cron_disabled = True
         self.odoo.config['timeout'] = default_timeout
 
 
