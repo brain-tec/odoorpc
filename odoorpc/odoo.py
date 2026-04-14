@@ -8,6 +8,7 @@ from odoorpc import error, rpc, session, tools
 from odoorpc.db import DB
 from odoorpc.env import Environment
 from odoorpc.report import Report
+from odoorpc.rpc.jsonrpclib import Secret
 
 
 class ODOO(object):
@@ -59,19 +60,19 @@ class ODOO(object):
 
     def __init__(
         self,
-        host='localhost',
-        protocol='jsonrpc',
+        host="localhost",
+        protocol="jsonrpc",
         port=8069,
         timeout=120,
         version=None,
         opener=None,
     ):
-        if protocol not in ['jsonrpc', 'jsonrpc+ssl']:
+        if protocol not in ["jsonrpc", "jsonrpc+ssl"]:
             txt = (
                 "The protocol '{0}' is not supported by the ODOO class. "
                 "Please choose a protocol among these ones: {1}"
             )
-            txt = txt.format(protocol, ['jsonrpc', 'jsonrpc+ssl'])
+            txt = txt.format(protocol, ["jsonrpc", "jsonrpc+ssl"])
             raise ValueError(txt)
         try:
             port = int(port)
@@ -100,7 +101,7 @@ class ODOO(object):
         # Dictionary of configuration options
         self._config = tools.Config(
             self,
-            {'auto_commit': True, 'auto_context': True, 'timeout': timeout},
+            {"auto_commit": True, "auto_context": True, "timeout": timeout},
         )
 
     @property
@@ -269,10 +270,8 @@ class ODOO(object):
         :raise: `urllib.error.URLError` (connection error)
         """
         data = self._connector.proxy_json(url, params)
-        if data.get('error'):
-            raise error.RPCError(
-                data['error']['data']['message'], data['error']
-            )
+        if data.get("error"):
+            raise error.RPCError(data["error"]["data"]["message"], data["error"])
         return data
 
     def http(self, url, data=None, headers=None):
@@ -318,7 +317,7 @@ class ODOO(object):
         if not self._env or not self._password or not self._login:
             raise error.InternalError("Login required")
 
-    def login(self, db, login='admin', password='admin'):
+    def login(self, db, login="admin", password="admin"):
         """Log in as the given `user` with the password `passwd` on the
         database `db`.
 
@@ -339,6 +338,7 @@ class ODOO(object):
         :raise: :class:`odoorpc.error.RPCError`
         :raise: `urllib.error.URLError` (connection error)
         """
+        password = Secret(password)
         # Get the user's ID and generate the corresponding user record
         if tools.v(self.version)[0] >= 10:
             data = self.json(
@@ -398,7 +398,7 @@ class ODOO(object):
         if not self._env:
             return False
         if tools.v(self.version)[0] < 10:
-            self.json('/web/session/destroy', {})
+            self.json("/web/session/destroy", {})
         self._env = None
         self._login = None
         self._password = None
@@ -469,10 +469,10 @@ class ODOO(object):
         ]
         args_to_send.extend(args)
         data = self.json(
-            '/jsonrpc',
-            {'service': 'object', 'method': 'execute', 'args': args_to_send},
+            "/jsonrpc",
+            {"service": "object", "method": "execute", "args": args_to_send},
         )
-        return data.get('result')
+        return data.get("result")
 
     def execute_kw(self, model, method, args=None, kwargs=None):
         """Execute the `method` of `model`.
@@ -522,14 +522,14 @@ class ODOO(object):
         ]
         args_to_send.extend([args, kwargs])
         data = self.json(
-            '/jsonrpc',
+            "/jsonrpc",
             {
-                'service': 'object',
-                'method': 'execute_kw',
-                'args': args_to_send,
+                "service": "object",
+                "method": "execute_kw",
+                "args": args_to_send,
             },
         )
-        return data.get('result')
+        return data.get("result")
 
     def exec_workflow(self, model, record_id, signal):
         """Execute the workflow `signal` on
@@ -548,9 +548,7 @@ class ODOO(object):
         :raise: `urllib.error.URLError` (connection error)
         """
         if tools.v(self.version)[0] >= 11:
-            raise DeprecationWarning(
-                u"Workflows have been removed in Odoo >= 11.0"
-            )
+            raise DeprecationWarning("Workflows have been removed in Odoo >= 11.0")
         self._check_logged_user()
         # Execute the workflow query
         args_to_send = [
@@ -562,20 +560,20 @@ class ODOO(object):
             record_id,
         ]
         data = self.json(
-            '/jsonrpc',
+            "/jsonrpc",
             {
-                'service': 'object',
-                'method': 'exec_workflow',
-                'args': args_to_send,
+                "service": "object",
+                "method": "exec_workflow",
+                "args": args_to_send,
             },
         )
-        return data.get('result')
+        return data.get("result")
 
     # ---------------------- #
     # -- Session methods  -- #
     # ---------------------- #
 
-    def save(self, name, rc_file='~/.odoorpcrc'):
+    def save(self, name, rc_file="~/.odoorpcrc"):
         """Save the current :class:`ODOO <odoorpc.ODOO>` instance (a `session`)
         inside `rc_file` (``~/.odoorpcrc`` by default). This session will be
         identified by `name`::
@@ -602,19 +600,19 @@ class ODOO(object):
         """
         self._check_logged_user()
         data = {
-            'type': self.__class__.__name__,
-            'host': self.host,
-            'protocol': self.protocol,
-            'port': self.port,
-            'timeout': self.config['timeout'],
-            'user': self._login,
-            'passwd': self._password,
-            'database': self.env.db,
+            "type": self.__class__.__name__,
+            "host": self.host,
+            "protocol": self.protocol,
+            "port": self.port,
+            "timeout": self.config["timeout"],
+            "user": self._login,
+            "passwd": self._password,
+            "database": self.env.db,
         }
         session.save(name, data, rc_file)
 
     @classmethod
-    def load(cls, name, rc_file='~/.odoorpcrc'):
+    def load(cls, name, rc_file="~/.odoorpcrc"):
         """Return a connected :class:`ODOO` session identified by `name`:
 
         .. doctest::
@@ -637,23 +635,21 @@ class ODOO(object):
         :raise: `urllib.error.URLError` (connection error)
         """
         data = session.get(name, rc_file)
-        if data.get('type') != cls.__name__:
+        if data.get("type") != cls.__name__:
             raise error.InternalError(
                 "'{}' session is not of type '{}'".format(name, cls.__name__)
             )
         odoo = cls(
-            host=data['host'],
-            protocol=data['protocol'],
-            port=data['port'],
-            timeout=data['timeout'],
+            host=data["host"],
+            protocol=data["protocol"],
+            port=data["port"],
+            timeout=data["timeout"],
         )
-        odoo.login(
-            db=data['database'], login=data['user'], password=data['passwd']
-        )
+        odoo.login(db=data["database"], login=data["user"], password=data["passwd"])
         return odoo
 
     @classmethod
-    def list(cls, rc_file='~/.odoorpcrc'):
+    def list(cls, rc_file="~/.odoorpcrc"):
         """Return a list of all stored sessions available in the
         `rc_file` file:
 
@@ -677,15 +673,11 @@ class ODOO(object):
         :raise: `FileNotFoundError`
         """
         sessions = session.get_all(rc_file)
-        return [
-            name
-            for name in sessions
-            if sessions[name].get('type') == cls.__name__
-        ]
+        return [name for name in sessions if sessions[name].get("type") == cls.__name__]
         # return session.list(rc_file)
 
     @classmethod
-    def remove(cls, name, rc_file='~/.odoorpcrc'):
+    def remove(cls, name, rc_file="~/.odoorpcrc"):
         """Remove the session identified by `name` from the `rc_file` file:
 
         .. doctest::
@@ -707,7 +699,7 @@ class ODOO(object):
         :raise: `FileNotFoundError`
         """
         data = session.get(name, rc_file)
-        if data.get('type') != cls.__name__:
+        if data.get("type") != cls.__name__:
             raise error.InternalError(
                 "'{}' session is not of type '{}'".format(name, cls.__name__)
             )

@@ -19,6 +19,16 @@ if sys.version_info[0] < 3:
     def decode_data(data):
         return data
 
+    class Secret(unicode):  # noqa: F821
+        """Used to hide sensitive string RPC parameters in logs."""
+
+        MASK = "**********"
+
+    class Bloat(unicode):  # noqa: F821
+        """Used to replace bloated string RPC parameters in logs."""
+
+        MASK = "<...>"
+
 
 # Python >= 3
 else:
@@ -28,33 +38,58 @@ else:
 
     def encode_data(data):
         try:
-            return bytes(data, 'utf-8')
+            return bytes(data, "utf-8")
         except:  # noqa: E722
             return bytes(data)
 
     def decode_data(data):
-        return io.StringIO(data.read().decode('utf-8'))
+        return io.StringIO(data.read().decode("utf-8"))
+
+    class Secret(str):
+        """Used to hide sensitive string RPC parameters in logs."""
+
+        MASK = "**********"
+
+    class Bloat(str):
+        """Used to replace bloated string RPC parameters in logs."""
+
+        MASK = "<...>"
 
 
-LOG_HIDDEN_JSON_PARAMS = ['password']
-LOG_JSON_SEND_MSG = u"(JSON,send) %(url)s %(data)s"
-LOG_JSON_RECV_MSG = u"(JSON,recv) %(url)s %(data)s => %(result)s"
-LOG_HTTP_SEND_MSG = u"(HTTP,send) %(url)s%(data)s"
-LOG_HTTP_RECV_MSG = u"(HTTP,recv) %(url)s%(data)s => %(result)s"
+LOG_JSON_SEND_MSG = "(JSON,send) %(url)s %(data)s"
+LOG_JSON_RECV_MSG = "(JSON,recv) %(url)s %(data)s => %(result)s"
+LOG_HTTP_SEND_MSG = "(HTTP,send) %(url)s%(data)s"
+LOG_HTTP_RECV_MSG = "(HTTP,recv) %(url)s%(data)s => %(result)s"
 
 logger = logging.getLogger(__name__)
 
 
+def _hide_parameters(data):
+    """Recursively hide Secret and Bloat values in `data`."""
+    if isinstance(data, dict):
+        for key in data:
+            value = data[key]
+            data[key] = _hide_parameters(value)
+    elif isinstance(data, list):
+        for e in data:
+            data[data.index(e)] = _hide_parameters(e)
+    elif isinstance(data, tuple):
+        # Replace tuple by list (mutable)
+        new_data = []
+        for e in data:
+            new_data.append(_hide_parameters(e))
+        return tuple(new_data)
+    elif isinstance(data, Secret):
+        return Secret.MASK
+    elif isinstance(data, Bloat):
+        return Bloat.MASK
+    return data
+
+
 def get_json_log_data(data):
-    """Returns a new `data` dictionary with hidden params
-    for log purpose.
-    """
-    log_data = data
-    for param in LOG_HIDDEN_JSON_PARAMS:
-        if param in data['params']:
-            if log_data is data:
-                log_data = copy.deepcopy(data)
-            log_data['params'][param] = "**********"
+    """Returns a new `data` dictionary with hidden params for log purpose."""
+    log_data = copy.deepcopy(data)
+    _hide_parameters(log_data)
     return log_data
 
 
@@ -79,7 +114,7 @@ class Proxy(object):
         return self._builder[url]
 
     def _get_full_url(self, url):
-        return '/'.join([self._root_url, url])
+        return "/".join([self._root_url, url])
 
 
 class ProxyJSON(Proxy):
@@ -102,21 +137,21 @@ class ProxyJSON(Proxy):
             "params": params,
             "id": random.randint(0, 1000000000),
         }
-        if url.startswith('/'):
+        if url.startswith("/"):
             url = url[1:]
         full_url = self._get_full_url(url)
         log_data = get_json_log_data(data)
-        logger.debug(LOG_JSON_SEND_MSG, {'url': full_url, 'data': log_data})
+        logger.debug(LOG_JSON_SEND_MSG, {"url": full_url, "data": log_data})
         data_json = json.dumps(data)
         request = Request(url=full_url, data=encode_data(data_json))
-        request.add_header('Content-Type', 'application/json')
+        request.add_header("Content-Type", "application/json")
         response = self._opener.open(request, timeout=self._timeout)
         if not self._deserialize:
             return response
         result = json.load(decode_data(response))
         logger.debug(
             LOG_JSON_RECV_MSG,
-            {'url': full_url, 'data': log_data, 'result': result},
+            {"url": full_url, "data": log_data, "result": result},
         )
         return result
 
@@ -127,16 +162,16 @@ class ProxyHTTP(Proxy):
     """
 
     def __call__(self, url, data=None, headers=None):
-        if url.startswith('/'):
+        if url.startswith("/"):
             url = url[1:]
         full_url = self._get_full_url(url)
         logger.debug(
             LOG_HTTP_SEND_MSG,
-            {'url': full_url, 'data': data and u" (%s)" % data or u""},
+            {"url": full_url, "data": data and " (%s)" % data or ""},
         )
-        kwargs = {'url': full_url}
+        kwargs = {"url": full_url}
         if data:
-            kwargs['data'] = encode_data(data)
+            kwargs["data"] = encode_data(data)
         request = Request(**kwargs)
         if headers:
             for hkey in headers:
@@ -146,9 +181,9 @@ class ProxyHTTP(Proxy):
         logger.debug(
             LOG_HTTP_RECV_MSG,
             {
-                'url': full_url,
-                'data': data and u" (%s)" % data or u"",
-                'result': response,
+                "url": full_url,
+                "data": data and " (%s)" % data or "",
+                "result": response,
             },
         )
         return response
@@ -164,13 +199,13 @@ class URLBuilder(object):
         self._url = url
 
     def __getattr__(self, path):
-        new_url = self._url and '/'.join([self._url, path]) or path
+        new_url = self._url and "/".join([self._url, path]) or path
         return URLBuilder(self._rpc, new_url)
 
     def __getitem__(self, path):
-        if path and path[0] == '/':
+        if path and path[0] == "/":
             path = path[1:]
-        if path and path[-1] == '/':
+        if path and path[-1] == "/":
             path = path[:-1]
         return getattr(self, path)
 

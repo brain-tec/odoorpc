@@ -8,11 +8,12 @@ from odoorpc.tools import v
 
 class TestFieldBinary(LoginTestCase):
     def test_field_binary_read(self):
-        if v(self.odoo.version)[0] < 13:
+        if v(self.odoo.version)[0] < 11:
             img = self.user.image
         else:
-            img = self.user.image_1920
-        base64.b64decode(img.encode('ascii'))
+            base = self.odoo.env.ref("base.module_base")
+            img = base.icon_image
+        base64.b64decode(img.encode("ascii"))
 
     def test_field_binary_write(self):
         if v(self.odoo.version)[0] < 13:
@@ -27,15 +28,15 @@ class TestFieldBinary(LoginTestCase):
                 b"\x01\x01\x00\x00\x3f\x00\xd2\xcf\x20\xff\xd9"
             )  # https://github.com/mathiasbynens/small/blob/master/jpeg.jpg
 
-            self.user.image = base64.b64encode(jpeg_file).decode('ascii')
-            data = self.user.read(['image'])[0]
-            decoded = base64.b64decode(data['image'].encode('ascii'))
+            self.user.image = base64.b64encode(jpeg_file).decode("ascii")
+            data = self.user.read(["image"])[0]
+            decoded = base64.b64decode(data["image"].encode("ascii"))
             self.assertEqual(decoded, jpeg_file)
 
             # Restore original value
             self.user.image = backup
-            data = self.user.read(['image'])[0]
-            self.assertEqual(data['image'], backup)
+            data = self.user.read(["image"])[0]
+            self.assertEqual(data["image"], backup)
             self.assertEqual(self.user.image, backup)
         else:
             backup = self.user.image_1920
@@ -49,13 +50,13 @@ class TestFieldBinary(LoginTestCase):
                 b"\x01\x01\x00\x00\x3f\x00\xd2\xcf\x20\xff\xd9"
             )  # https://github.com/mathiasbynens/small/blob/master/jpeg.jpg
 
-            self.user.image_1920 = base64.b64encode(jpeg_file).decode('ascii')
-            data = self.user.read(['image_1920'])[0]
-            decoded = base64.b64decode(data['image_1920'].encode('ascii'))
+            self.user.image_1920 = base64.b64encode(jpeg_file).decode("ascii")
+            data = self.user.read(["image_1920"])[0]
+            decoded = base64.b64decode(data["image_1920"].encode("ascii"))
             self.assertEqual(decoded, jpeg_file)
 
             # Restore original value
             self.user.image_1920 = backup
-            data = self.user.read(['image_1920'])[0]
-            self.assertEqual(data['image_1920'], backup)
+            data = self.user.read(["image_1920"])[0]
+            self.assertEqual(data["image_1920"], backup)
             self.assertEqual(self.user.image_1920, backup)
